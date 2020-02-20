@@ -1,0 +1,19 @@
+{
+  "name": "cursor-server",
+  "version": "1.0.0",
+  "main": "index.js",
+  "author": "xTCry (Vladislav Kh)",
+  "license": "MIT",
+  "scripts": {
+    "start": "ts-node ./src/index.ts",
+    "dev": "nodemon ./src/index.ts"
+  },
+  "devDependencies": {
+    "nodemon": "^2.0.2",
+    "ts-node": "^8.6.2",
+    "typescript": "^3.7.5"
+  },
+  "dependencies": {
+    "uWebSockets.js": "uNetworking/uWebSockets.js#v17.1.0"
+  }
+}

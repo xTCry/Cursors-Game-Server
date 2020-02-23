@@ -1,13 +1,9 @@
 import PlayerManager, { Player } from './PlayerManager';
 import { BufferWriter } from '../tools/Buffer';
-import { ServerMsg } from '../Types';
+import { ServerMsg, Point } from '../Types';
 
-interface ICircleData {
-    x: number;
-    y: number;
-}
 interface IUpdates {
-    circles: Array<ICircleData>
+    clicks: Array<Point>
 }
 
 class LevelManager {
@@ -15,7 +11,7 @@ class LevelManager {
 
     constructor() {
         this._updates = {
-            circles: [],
+            clicks: [],
         };
     }
 
@@ -33,23 +29,28 @@ class LevelManager {
 
         const writer = new BufferWriter();
         writer.writeU(ServerMsg.UPDATE_DATA);
-        writer.writeU(this.getPlayers().length, 16);
+        writer.writeU(players.length, 16); // in level
         
-        // Test circles
-        writer.writeU(this.updates.circles.length, 16);
-        for (const circle of this.updates.circles) {
-            writer.writeU(circle.x, 16);
-            writer.writeU(circle.y, 16);
+		for (const player of players) {
+			player.Serialize(writer);
         }
-        this.updates.circles = [];
+        
+        writer.writeU(this.updates.clicks.length, 16);
+        for (const pos of this.updates.clicks) {
+            writer.writeU(pos.x, 16);
+            writer.writeU(pos.y, 16);
+        }
+        this.updates.clicks = [];
+        
+        writer.writeU(players.length, 16);
 
         for (const player of players) {
             player.Send(writer.get);
         }
     }
 
-    AddCircle(x: number, y: number) {
-        this._updates.circles.push({ x, y });
+    AddClick(pos: Point) {
+        this._updates.clicks.push(pos);
     }
 
     public get updates(): IUpdates {

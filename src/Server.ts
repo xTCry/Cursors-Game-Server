@@ -45,7 +45,7 @@ export class Server {
     RunTick() {
         setInterval(()=>{
             LevelManager.Tick();
-        }, 1e3 / 3);
+        }, 1e3 / 4);
     }
 
 }

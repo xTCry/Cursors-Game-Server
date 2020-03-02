@@ -47,8 +47,10 @@ export class Server {
 
     RunTick() {
         setInterval(()=>{
-            LevelManager.Tick();
-        }, 1e3 / 4);
+        this.isTick = true;
+        this.Tick()
+            .then()
+            .catch(e => console.error(e));
     }
 
     async Tick() {

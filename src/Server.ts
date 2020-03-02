@@ -46,7 +46,6 @@ export class Server {
     }
 
     RunTick() {
-        setInterval(()=>{
         this.isTick = true;
         this.Tick()
             .then()

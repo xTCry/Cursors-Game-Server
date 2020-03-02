@@ -2,7 +2,7 @@ import { WebSocket } from 'uWebSockets.js';
 import uuidv4 from 'uuid/v4';
 import { BufferWriter, BufferReader } from '../tools/Buffer';
 import LevelManager from '../manager/LevelManager';
-import { ClientMessageType, Point, ServerMessageType } from '../Types';
+import { ClientMessageType, Point, ServerMessageType, Box } from '../Types';
 import Level from './Level';
 
 export class Player {
@@ -53,6 +53,16 @@ export class Player {
                     this.OnClick([x, y], sync);
                 } catch (e) {}
                 break;
+            case ClientMessageType.DRAW:
+                try {
+                    const startX = reader.readU(16);
+                    const startY = reader.readU(16);
+                    const endX = reader.readU(16);
+                    const endY = reader.readU(16);
+                    // this.level.log.info(`► Draw`);
+                    this.OnDraw([startX, startY], [endX, endY]);
+                } catch (e) {}
+                break;
         }
     }
 
@@ -100,6 +110,15 @@ export class Player {
     public OnClick(pos: Point, sync: number) {
         if (this.OnMove(pos, sync)) {
             this.level.AddClick(pos);
+        }
+    }
+
+    public OnDraw(start: Point, end: Point) {
+        if (
+            !(start[0] === end[0] && start[1] === end[1]) &&
+            this.OnMoveSafe(start) && this.OnMoveSafe(end)
+        ) {
+            this.level.AddLine([...start, ...end] as Box);
         }
     }
 

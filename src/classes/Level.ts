@@ -1,5 +1,5 @@
 import { Player } from './Player';
-import { Point, ServerMessageType, EGameObjectType } from '../Types';
+import { Point, ServerMessageType, EGameObjectType, Box } from '../Types';
 import { BufferWriter } from '../tools/Buffer';
 import { createLogger, Logger } from '../tools/logger';
 import GameObject from './GameObject';
@@ -18,6 +18,7 @@ export default abstract class Level {
     private toUpdate: Array<GameObject> = [];
     private toRemove: Array<number> = [];
     private clicks: Array<Point> = [];
+    private lines: Array<Box> = [];
 
     protected abstract OnInit(): void;
 
@@ -142,6 +143,7 @@ export default abstract class Level {
             this.sentTotalPlayersCount != levelManager.totalPlayersCount ||
             this.playersMoved.length ||
             this.clicks.length ||
+            this.lines.length ||
             this.toUpdate.length ||
             this.toRemove.length
         ) {
@@ -171,9 +173,12 @@ export default abstract class Level {
                 obj.Serialize(writer);
             }
 
-            // drawing
-            writer.writeU(0, 16);
-            // TODO: ... for()
+            writer.writeU(this.lines.length, 16);
+            for (const line of this.lines) {
+                for (const dot of line) {
+                    writer.writeU(dot, 16);
+                }
+            }
 
             writer.writeU(levelManager.totalPlayersCount, 16);
 
@@ -186,6 +191,7 @@ export default abstract class Level {
 
         this.playersMoved = [];
         this.clicks = [];
+        this.lines = [];
         this.toUpdate = [];
         this.toRemove = [];
     }
@@ -197,6 +203,12 @@ export default abstract class Level {
     public AddClick(pos: Point) {
         if (this.clicks.length < 100) {
             this.clicks.push(pos);
+        }
+    }
+
+    public AddLine(line: Box) {
+        if (this.lines.length < 80 && this.players.length < 30) {
+            this.lines.push(line);
         }
     }
 

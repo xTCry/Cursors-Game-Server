@@ -2,14 +2,15 @@ import { WebSocket } from 'uWebSockets.js';
 import uuidv4 from 'uuid/v4';
 import { BufferWriter, BufferReader } from '../tools/Buffer';
 import LevelManager from '../manager/LevelManager';
-import { ClientMessageType, Point, ServerMessageType } from "../Types";
+import { ClientMessageType, Point, ServerMessageType } from '../Types';
+import Level from './Level';
 
 export class Player {
     public readonly uid: string = uuidv4();
     public readonly uniqueID: number;
-    public levelID = null;
+    public levelID: number = null;
     private socket: WebSocket;
-    private pos: Point = [0, 0];
+    public pos: Point = [0, 0];
     public sync: number = 0;
     private color: number = (Math.random() * (1 << 24)) | 0;
 
@@ -21,14 +22,12 @@ export class Player {
         this.uniqueID = uniqueID;
     }
 
-    Send(data: Buffer) {
+    public Send(data: Buffer) {
         if (this.socket.closed) return;
         this.socket.send(data, true);
     }
 
-    OnMessage(message: ArrayBuffer) {
-        console.log('• Message:', message.byteLength, Buffer.from(message));
-
+    public OnMessage(message: ArrayBuffer) {
         if (message.byteLength < 2) {
             return;
         }
@@ -50,31 +49,31 @@ export class Player {
                     const x = reader.readU(16);
                     const y = reader.readU(16);
                     const sync = reader.readU(32);
-                    console.log(`► Click: {${sync}} [${x}:${y}]`);
+                    this.level.log.info(`► Click: {${sync}} [${x}:${y}]`);
                     this.OnClick([x, y], sync);
                 } catch (e) {}
                 break;
         }
     }
 
-    Resync() {
+    public Resync() {
         this.sync++;
         const [x, y] = this.pos;
-        const fastBuff = BufferWriter.fast([
-            [ServerMessageType.TELEPORT_CLIENT],
-            [x, 16],
-            [y, 16],
-            [this.sync, 32],
-        ]);
+        const fastBuff = BufferWriter.fast([[ServerMessageType.TELEPORT_CLIENT], [x, 16], [y, 16], [this.sync, 32]]);
         this.Send(fastBuff);
     }
 
-    OnMove([x, y]: Point, sync: number) {
-        console.log(`► Move: {${sync}} [${x}:${y}]`);
-        if (sync >= this.sync) {
-            const newPos: Point = this.CheckMovement(this.pos, [x, y]);
+    public OnTeleport(pos: Point) {
+        this.OnMoveSafe(pos, false);
+    }
+
+    public OnMove([x, y]: Point, sync: number) {
+        this.level.log.info(`► Move: {${sync}} [${x}:${y}]`);
+        if (sync >= this.sync && this.level) {
+            const newPos = this.level.CheckMovement(this.pos, [x, y]);
 
             this.pos = newPos;
+            this.level.OnMoved(this);
             if (x == newPos[0] && y == newPos[1]) {
                 return true;
             } else {
@@ -84,35 +83,34 @@ export class Player {
         return false;
     }
 
-    OnMoveSafe(newPos: Point, check: boolean = true, sysncPos: boolean = true) {
-        if(check) {
+    public OnMoveSafe(newPos: Point, check: boolean = true, sysncPos: boolean = true) {
+        if (check) {
             return this.OnMove(newPos, this.sync);
-        }
-        else if(this.levelID !== null) {
+        } else if (this.level) {
             this.pos = newPos;
-            if(sysncPos) {
+            if (sysncPos) {
                 this.Resync();
             }
 
-            LevelManager.GetLevel(this.levelID).OnMoved(this);
+            this.level.OnMoved(this);
         }
         return false;
     }
 
-    OnClick(pos: Point, sync: number) {
+    public OnClick(pos: Point, sync: number) {
         if (this.OnMove(pos, sync)) {
-            LevelManager.AddClick(pos);
+            this.level.AddClick(pos);
         }
     }
 
-    CheckMovement(start: Point, end: Point): Point {
-        if (end[0] < 400 && end[1] < 300) {
-            return end;
+    public get level(): Level | null {
+        if (this.levelID === null) {
+            return null;
         }
-        return start;
+        return LevelManager.GetLevel(this.levelID);
     }
 
-    Serialize(writer: BufferWriter) {
+    public Serialize(writer: BufferWriter) {
         const [x, y] = this.pos;
         writer.writeU(this.uniqueID, 32);
         writer.writeU(x, 16);

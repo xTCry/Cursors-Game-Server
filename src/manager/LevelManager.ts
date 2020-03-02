@@ -1,30 +1,22 @@
 import PlayerManager from './PlayerManager';
-import { BufferWriter } from '../tools/Buffer';
-import { ServerMessageType, Point } from '../Types';
 import { Player } from '../classes/Player';
 import { createLogger, Logger } from '../tools/logger';
 import Level from '../classes/Level';
-
-interface IUpdates {
-    clicks: Array<Point>
-}
+import LevelTest from '../classes/levels/LevelTest';
 
 class LevelManager {
     private readonly log: Logger = createLogger('LM');
     private levels: Array<Level> = [];
-    private _updates: IUpdates = {
-        clicks: [],
-    };
 
     public async InitializeLevels() {
-        // TODO: ...
-
-        class TestLevel extends Level {
-            spawn: Point = [0, 0];
-        }
+        // TODO: load level from storage
 
         // test
-        this.AddLevel(new TestLevel());
+        this.AddLevel(new LevelTest());
+
+        for (const level of this.levels) {
+            level.Init();
+        }
 
         this.log.info('Levels loaded');
     }
@@ -64,50 +56,23 @@ class LevelManager {
         player.levelID = null;
     }
 
-    getPlayers(): Array<Player> {
+    public getPlayers(level: Level = null): Array<Player> {
+        if(level) {
+            const levelID = this.levels.findIndex(e => e == level);
+            return Object.values(PlayerManager.playersList).filter(e => e.levelID == levelID);
+        }
+
         return Object.values(PlayerManager.playersList);
     }
 
+    public get totalPlayersCount() {
+        return this.getPlayers().length;
+    }
+
     Tick() {
-        this.BroadcastData();
-    }
-
-    // For test without level
-    BroadcastData() {
-        const players = this.getPlayers();
-
-        const writer = new BufferWriter();
-        writer.writeU(ServerMessageType.UPDATE_DATA);
-        writer.writeU(players.length, 16); // in level
-
-        for (const player of players) {
-            player.Serialize(writer);
+        for (const level of this.levels) {
+            level.TryTick();
         }
-
-        writer.writeU(this.updates.clicks.length, 16);
-        for (const [x, y] of this.updates.clicks) {
-            writer.writeU(x, 16);
-            writer.writeU(y, 16);
-        }
-        this.updates.clicks = [];
-
-        writer.writeU(0, 16); // walls removed
-        writer.writeU(0, 16); // updateObjs
-        writer.writeU(0, 16); // drawing
-
-        writer.writeU(players.length, 16);
-
-        for (const player of players) {
-            player.Send(writer.get);
-        }
-    }
-
-    AddClick(pos: Point) {
-        this._updates.clicks.push(pos);
-    }
-
-    public get updates(): IUpdates {
-        return this._updates;
     }
 }
 

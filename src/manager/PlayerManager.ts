@@ -8,7 +8,7 @@ import { Player } from '../classes/Player';
 export class PlayerManager {
     private readonly log: Logger = createLogger('PM');
     public playersList: IPlayersList = {};
-    private _playerCouner: number = 0;
+    private _playerCounter: number = 0;
 
     /**
      * Add new connected player
@@ -36,9 +36,9 @@ export class PlayerManager {
      */
     RemovePlayer(socket: WebSocket) {
         socket.closed = true;
-        // const player = this.playersList[socket.uid];
+        const player = this.playersList[socket.uid];
 
-        // LevelManager.Leave(player, player.data.level);
+        LevelManager.Leave(player);
 
         delete this.playersList[socket.uid];
     }
@@ -57,7 +57,7 @@ export class PlayerManager {
     }
 
     public genUniqueID(): number {
-        return ++this._playerCouner;
+        return ++this._playerCounter;
     }
 }
 

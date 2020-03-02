@@ -26,11 +26,20 @@ export interface IPoint {
     x: number;
     y: number;
 }
+
 /**
  * @property X
  * @property Y
  */
 export type Point = [number, number];
+
+/**
+ * @property X
+ * @property Y
+ * @property W
+ * @property H
+ */
+export type Box = [number, number, number, number];
 
 export interface IPlayersList {
     [key: number]: Player;

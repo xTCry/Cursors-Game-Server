@@ -37,15 +37,18 @@ export class Server {
     /**
      * Run the server
      */
-    public Run() {
-        this.hub.listen(this.port, socket => {
-            if (!socket) {
-                throw Error(`Failed to run listening on port.`);
-            }
-            console.log(`• The server is listening on port ${this.port}`);
-            this.RunTick();
-        });
+    public async Run() {
         this.log.info(`Starting server...`);
+
+        await LevelManager.InitializeLevels();
+
+        const socket = await new Promise(resolve => this.hub.listen(this.port, socket => resolve(socket)));
+        if (!socket) {
+            throw Error(`Could not listen on port ${this.port}.`);
+        }
+
+        this.log.info(`The server is listening on port ${this.port}`);
+        this.RunTick();
     }
 
     RunTick() {
@@ -55,7 +58,7 @@ export class Server {
             .catch(e => console.error(e));
     }
 
-    async Tick() {
+    private async Tick() {
         if (!this.isTick) return;
         LevelManager.Tick();
 

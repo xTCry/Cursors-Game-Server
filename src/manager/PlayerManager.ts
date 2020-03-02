@@ -1,7 +1,7 @@
 import { TemplatedApp, WebSocket } from 'uWebSockets.js';
 import uuidv4 from 'uuid/v4';
 import { BufferWriter, BufferReader } from '../tools/Buffer';
-import { ServerMsg, ClientMsg, Point } from '../Types';
+import { ServerMessageType, ClientMessageType, Point } from '../Types';
 import LevelManager from './LevelManager';
 
 type IPlayerList = { [key: string]: Player };
@@ -29,7 +29,7 @@ export class PlayerManage {
         this.playersList[player.uid] = player;
 
         // Send player ID
-        const fastBuff = BufferWriter.fast([[ServerMsg.SET_CLIENT_ID], [player.uniqueID, 32]]);
+        const fastBuff = BufferWriter.fast([[ServerMessageType.SET_CLIENT_ID], [player.uniqueID, 32]]);
         player.Send(fastBuff);
 
         // Join to Test Level
@@ -73,8 +73,9 @@ export class Player {
     public readonly uid: string = uuidv4();
     public readonly uniqueID: number = playerManager.genUniqueID();
     private socket: WebSocket;
-    private pos: Point = { x: 0, y: 0 };
+    private pos: Point = [0, 0];
     private sync: number = 0;
+    private color: number = (Math.random() * (1 << 24)) | 0;
 
     constructor(socket: WebSocket) {
         this.socket = socket;
@@ -99,21 +100,21 @@ export class Player {
         const type = reader.readU();
 
         switch (type) {
-            case ClientMsg.MOVE:
+            case ClientMessageType.MOVE:
                 try {
                     const x = reader.readU(16);
                     const y = reader.readU(16);
                     const sync = reader.readU(32);
-                    this.OnMove({ x, y }, sync);
+                    this.OnMove([x, y], sync);
                 } catch (e) {}
                 break;
-            case ClientMsg.CLICK:
+            case ClientMessageType.CLICK:
                 try {
                     const x = reader.readU(16);
                     const y = reader.readU(16);
                     const sync = reader.readU(32);
                     console.log(`► Click: {${sync}} [${x}:${y}]`);
-                    this.OnClick({ x, y }, sync);
+                    this.OnClick([x, y], sync);
                 } catch (e) {}
                 break;
         }
@@ -121,23 +122,23 @@ export class Player {
 
     Resync() {
         this.sync++;
-
+        const [x, y] = this.pos;
         const fastBuff = BufferWriter.fast([
-            [ServerMsg.TELEPORT_CLIENT],
-            [this.pos.x, 16],
-            [this.pos.y, 16],
+            [ServerMessageType.TELEPORT_CLIENT],
+            [x, 16],
+            [y, 16],
             [this.sync, 32],
         ]);
         this.Send(fastBuff);
     }
 
-    OnMove({ x, y }: Point, sync: number) {
+    OnMove([x, y]: Point, sync: number) {
         console.log(`► Move: {${sync}} [${x}:${y}]`);
         if (sync >= this.sync) {
-            const newPos: Point = this.CheckMovement(this.pos, { x, y });
+            const newPos: Point = this.CheckMovement(this.pos, [x, y]);
 
             this.pos = newPos;
-            if (x == newPos.x && y == newPos.y) {
+            if (x == newPos[0] && y == newPos[1]) {
                 return true;
             } else {
                 this.Resync();
@@ -147,22 +148,24 @@ export class Player {
     }
 
     OnClick(pos: Point, sync: number) {
-        if(this.OnMove(pos, sync)) {
+        if (this.OnMove(pos, sync)) {
             LevelManager.AddClick(pos);
         }
     }
 
     CheckMovement(start: Point, end: Point): Point {
-        if (end.x < 400 && end.y < 300) {
+        if (end[0] < 400 && end[1] < 300) {
             return end;
         }
         return start;
     }
 
     Serialize(writer: BufferWriter) {
+        const [x, y] = this.pos;
         writer.writeU(this.uniqueID, 32);
-        writer.writeU(this.pos.x, 16);
-        writer.writeU(this.pos.y, 16);
+        writer.writeU(x, 16);
+        writer.writeU(y, 16);
+        writer.writeU(this.color, 32);
     }
 }
 

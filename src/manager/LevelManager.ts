@@ -1,6 +1,6 @@
 import PlayerManager, { Player } from './PlayerManager';
 import { BufferWriter } from '../tools/Buffer';
-import { ServerMsg, Point } from '../Types';
+import { ServerMessageType, Point } from '../Types';
 
 interface IUpdates {
     clicks: Array<Point>
@@ -28,7 +28,7 @@ class LevelManager {
         const players = this.getPlayers();
 
         const writer = new BufferWriter();
-        writer.writeU(ServerMsg.UPDATE_DATA);
+        writer.writeU(ServerMessageType.UPDATE_DATA);
         writer.writeU(players.length, 16); // in level
         
 		for (const player of players) {
@@ -36,9 +36,9 @@ class LevelManager {
         }
         
         writer.writeU(this.updates.clicks.length, 16);
-        for (const pos of this.updates.clicks) {
-            writer.writeU(pos.x, 16);
-            writer.writeU(pos.y, 16);
+        for (const [x, y] of this.updates.clicks) {
+            writer.writeU(x, 16);
+            writer.writeU(y, 16);
         }
         this.updates.clicks = [];
         

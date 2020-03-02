@@ -1,28 +1,31 @@
 import { App, TemplatedApp, HttpRequest, WebSocket, HttpResponse } from 'uWebSockets.js';
-import PlayerManager from "./manager/PlayerManager";
+import PlayerManager from './manager/PlayerManager';
 import LevelManager from './manager/LevelManager';
+import { sleep } from './tools/Utils';
 
 export class Server {
     private port: number;
     private hub: TemplatedApp;
+    private isTick: boolean = false;
+    public fps: number = 1;
 
     constructor(port: number = 8005) {
         this.port = port;
         this.hub = App()
             .ws('/*', {
                 open: (socket: WebSocket, req: HttpRequest) => {
-					PlayerManager.AddPlayer(socket);
+                    PlayerManager.AddPlayer(socket);
                     // ...
                     console.log('• Connected');
                 },
                 close: (socket: WebSocket, code: number, msg: ArrayBuffer) => {
-					PlayerManager.RemovePlayer(socket);
+                    PlayerManager.RemovePlayer(socket);
                     // ...
                     console.log('• Disconnect');
                 },
                 message: (socket: WebSocket, message: ArrayBuffer, isBin: boolean) => {
                     PlayerManager.OnMessage(socket, message);
-                }
+                },
             })
             .any('/*', (res: HttpResponse, req: HttpRequest) => {
                 res.end('HelloW');
@@ -48,4 +51,11 @@ export class Server {
         }, 1e3 / 4);
     }
 
+    async Tick() {
+        if (!this.isTick) return;
+        LevelManager.Tick();
+
+        await sleep(1e3 / this.fps);
+        this.Tick();
+    }
 }

@@ -7,12 +7,12 @@ interface IUpdates {
 }
 
 class LevelManager {
-    private _updates: IUpdates;
+    private _updates: IUpdates = {
+        clicks: [],
+    };
 
-    constructor() {
-        this._updates = {
-            clicks: [],
-        };
+    public async InitializeLevels() {
+        // TODO: ...
     }
 
     getPlayers(): Array<Player> {

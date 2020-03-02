@@ -2,8 +2,10 @@ import { App, TemplatedApp, HttpRequest, WebSocket, HttpResponse } from 'uWebSoc
 import PlayerManager from './manager/PlayerManager';
 import LevelManager from './manager/LevelManager';
 import { sleep } from './tools/Utils';
+import { createLogger, Logger } from './tools/logger';
 
 export class Server {
+    private readonly log: Logger = createLogger('Server');
     private port: number;
     private hub: TemplatedApp;
     private isTick: boolean = false;
@@ -16,12 +18,12 @@ export class Server {
                 open: (socket: WebSocket, req: HttpRequest) => {
                     PlayerManager.AddPlayer(socket);
                     // ...
-                    console.log('• Connected');
+                    // this.log.info('Connected');
                 },
                 close: (socket: WebSocket, code: number, msg: ArrayBuffer) => {
                     PlayerManager.RemovePlayer(socket);
                     // ...
-                    console.log('• Disconnect');
+                    // this.log.info('Disconnect');
                 },
                 message: (socket: WebSocket, message: ArrayBuffer, isBin: boolean) => {
                     PlayerManager.OnMessage(socket, message);
@@ -43,6 +45,7 @@ export class Server {
             console.log(`• The server is listening on port ${this.port}`);
             this.RunTick();
         });
+        this.log.info(`Starting server...`);
     }
 
     RunTick() {

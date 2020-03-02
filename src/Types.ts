@@ -14,4 +14,8 @@ export interface IPoint {
     x: number;
     y: number;
 }
+/**
+ * @property X
+ * @property Y
+ */
 export type Point = [number, number];

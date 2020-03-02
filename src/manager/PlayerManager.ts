@@ -1,24 +1,14 @@
-import { TemplatedApp, WebSocket } from 'uWebSockets.js';
+import { WebSocket } from 'uWebSockets.js';
 import uuidv4 from 'uuid/v4';
 import { BufferWriter, BufferReader } from '../tools/Buffer';
-import { ServerMessageType, ClientMessageType, Point } from '../Types';
+import { ServerMessageType, ClientMessageType, Point, IPlayersList } from '../Types';
 import LevelManager from './LevelManager';
+import { Logger, createLogger } from '../tools/logger';
 
-type IPlayerList = { [key: string]: Player };
-
-export class PlayerManage {
-    public hub: TemplatedApp;
-    public playersList: IPlayerList;
+export class PlayerManager {
+    private readonly log: Logger = createLogger('PM');
+    public playersList: IPlayersList = {};
     private _playerCouner: number = 0;
-
-    constructor() {
-        this.hub = null;
-        this.playersList = {};
-    }
-
-    init(hub: TemplatedApp) {
-        this.hub = hub;
-    }
 
     /**
      * Add new connected player
@@ -31,6 +21,8 @@ export class PlayerManage {
         // Send player ID
         const fastBuff = BufferWriter.fast([[ServerMessageType.SET_CLIENT_ID], [player.uniqueID, 32]]);
         player.Send(fastBuff);
+
+        this.log.info('New player connected');
 
         // Join to Test Level
         // LevelManager.Join(player, 1);
@@ -169,5 +161,5 @@ export class Player {
     }
 }
 
-const playerManager = new PlayerManage();
+const playerManager = new PlayerManager();
 export default playerManager;

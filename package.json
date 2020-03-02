@@ -16,7 +16,9 @@
   "dependencies": {
     "@types/node": "^13.7.4",
     "@types/uuid": "^3.4.7",
+    "@types/winston": "^2.4.4",
     "uWebSockets.js": "uNetworking/uWebSockets.js#v17.1.0",
-    "uuid": "^3.4.0"
+    "uuid": "^3.4.0",
+    "winston": "^3.2.1"
   }
 }

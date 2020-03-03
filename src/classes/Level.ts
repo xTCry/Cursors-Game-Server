@@ -12,6 +12,7 @@ export default abstract class Level {
     private isTick: boolean = true;
     private map: Uint8Array = new Uint8Array(400 * 300);
     private gameObjects: Array<GameObject> = [];
+    private gameObjectsCounter: number = 0;
 
     private sentTotalPlayersCount: number = 0;
     private playersMoved: Array<Player> = [];
@@ -27,9 +28,18 @@ export default abstract class Level {
         this.OnInit();
     }
 
-    protected AddGameObject(obj: GameObject) {
+    public AddGameObject(obj: GameObject) {
+        if (obj.id === null) {
+            obj.id = ++this.gameObjectsCounter;
+        }
+
         this.gameObjects.push(obj);
+        // this.gameObjects = this.gameObjects.sort((a, b) => (a.id > b.id ? 1 : -1));
+
         if (obj.isInit) return;
+        obj.isInit = true;
+
+        obj.SetLevel(this);
 
         const [x, y, w, h] = obj.transform;
         if (x + w > 400 || y + h > 300) {
@@ -43,19 +53,31 @@ export default abstract class Level {
         }
 
         obj.OnTick();
-        this.toUpdate.push(obj);
+        // this.toUpdate.push(obj);
     }
 
     public OnPlayerJoin(player: Player) {
+        this.log.info(`► Player join to level`);
         player.OnMoveSafe(this.spawn, false, false);
     }
 
     public OnPlayerLeave(player: Player) {
-        // TODO: Reset objects by player
+        this.playersMoved.slice(
+            this.playersMoved.findIndex(e => e == player),
+            1
+        );
+
+        for (const obj of this.gameObjects) {
+            if (obj.OnPlayerLeft(player)) {
+                this.toUpdate.push(obj);
+            }
+        }
+
+        this.sentTotalPlayersCount = 0;
     }
 
     public SendLevelData(player: Player, sync: number) {
-        // gObjs = level.gObjs.filter(x => (x.type != gObjType.Wall || !x.hasOpened)),
+        // const objs = this.gameObjects.filter(x => (x.type != EGameObjectType.WALL || !x.Disabled));
 
         const numObjects = this.gameObjects.length;
 
@@ -69,11 +91,9 @@ export default abstract class Level {
 
         writer.writeU(numObjects, 16);
 
-        // var sObjs = gObjs.sort((a, b)=> ((a.type > b.type) ? 1 : ((b.type > a.type) ? -1 : 0)) );
-
-        // for(const obj of this.objects) {
-        // obj.w(writer);
-        // }
+        for (const obj of this.gameObjects) {
+            obj.Serialize(writer);
+        }
 
         writer.writeU(sync, 32);
 

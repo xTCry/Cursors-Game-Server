@@ -78,7 +78,7 @@ export class Player {
     }
 
     public OnMove([x, y]: Point, sync: number) {
-        this.level.log.info(`► Move: {${sync}} [${x}:${y}]`);
+        // this.level.log.info(`► Move: {${sync}} [${x}:${y}]`);
         if (sync >= this.sync && this.level) {
             const newPos = this.level.CheckMovement(this.pos, [x, y]);
 
@@ -114,10 +114,7 @@ export class Player {
     }
 
     public OnDraw(start: Point, end: Point) {
-        if (
-            !(start[0] === end[0] && start[1] === end[1]) &&
-            this.OnMoveSafe(start) && this.OnMoveSafe(end)
-        ) {
+        if (!(start[0] === end[0] && start[1] === end[1]) && this.OnMoveSafe(start) && this.OnMoveSafe(end)) {
             this.level.AddLine([...start, ...end] as Box);
         }
     }

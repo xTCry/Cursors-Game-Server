@@ -57,7 +57,7 @@ class LevelManager {
     }
 
     public getPlayers(level: Level = null): Array<Player> {
-        if(level) {
+        if (level) {
             const levelID = this.levels.findIndex(e => e == level);
             return Object.values(PlayerManager.playersList).filter(e => e.levelID == levelID);
         }

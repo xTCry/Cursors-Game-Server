@@ -43,7 +43,7 @@ export default abstract class Level {
 
         const [x, y, w, h] = obj.transform;
         if (x + w > 400 || y + h > 300) {
-            throw Error(`Object outside of map [${x};${y}]`);
+            throw Error(`Object outside of map [${x};${y}] {${obj}}`);
         }
 
         for (let X = x; X < x + w; X++) {
@@ -247,5 +247,9 @@ export default abstract class Level {
 
     public get players() {
         return levelManager.getPlayers(this);
+    }
+
+    public get spawnPoint() {
+        return this.spawn;
     }
 }

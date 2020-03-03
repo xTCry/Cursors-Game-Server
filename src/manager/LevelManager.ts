@@ -3,16 +3,20 @@ import { Player } from '../classes/Player';
 import { createLogger, Logger } from '../tools/logger';
 import Level from '../classes/Level';
 import LevelTest from '../classes/levels/LevelTest';
+import LevelTest2 from '../classes/levels/LevelTest2';
 
 class LevelManager {
     private readonly log: Logger = createLogger('LM');
-    private levels: Array<Level> = [];
+    public levels: Array<Level> = [];
 
     public async InitializeLevels() {
         // TODO: load level from storage
 
         // test
-        this.AddLevel(new LevelTest());
+        this.AddLevels([
+            new LevelTest(),
+            new LevelTest2(),
+        ]);
 
         for (const level of this.levels) {
             level.Init();
@@ -21,20 +25,27 @@ class LevelManager {
         this.log.info('Levels loaded');
     }
 
-    private AddLevel(level: Level) {
-        this.levels.push(level);
+    private AddLevels(levels: Level[]) {
+        this.levels.push(...levels);
     }
 
     public GetLevel(levelID: number) {
         return this.levels[levelID];
     }
 
+    public GetNextLevel(level: Level) {
+        const levelID = this.levels.findIndex(e => e === level);
+        return !~levelID || levelID > this.levels.length ? null : this.levels[levelID + 1];
+    }
+
     /**
-     * Connect the player to a {newLevelID} level,
+     * Connect the player to a {level},
      * previously disconnecting
      * him from {levelID} curentLevel (if any)
      */
-    public Join(player: Player, newLevelID: number) {
+    public Join(player: Player, level: number | Level) {
+        const newLevelID = level instanceof Level ? this.levels.findIndex(e => e === level) : level;
+        
         if (player.levelID !== null && player.levelID !== newLevelID) {
             this.Leave(player);
         }
@@ -42,9 +53,9 @@ class LevelManager {
         if (this.GetLevel(newLevelID)) {
             player.levelID = newLevelID;
 
-            const level = this.GetLevel(newLevelID);
-            level.OnPlayerJoin(player);
-            level.SendLevelData(player, ++player.sync);
+            const newLevel = this.GetLevel(newLevelID);
+            newLevel.OnPlayerJoin(player);
+            newLevel.SendLevelData(player, ++player.sync);
         } else {
             throw TypeError(`Level by ID '${newLevelID}' not found`);
         }

@@ -22,6 +22,16 @@ export enum EGameObjectType {
     BUTTON,
 }
 
+export enum EWallColor {
+    BLACK = 0x000000,
+    RED,
+}
+
+export enum ETeleportColor {
+    GREEN = 0,
+    RED,
+}
+
 export interface IPoint {
     x: number;
     y: number;

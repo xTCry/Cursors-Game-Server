@@ -1,7 +1,8 @@
-import { EGameObjectType, Box, Point } from '../Types';
+import { EGameObjectType, Box, Point, EWallColor, ETeleportColor } from '../Types';
 import { BufferWriter } from '../tools/Buffer';
 import { Player } from './Player';
 import Level from './Level';
+import levelManager from '../manager/LevelManager';
 
 export default abstract class GameObject {
     public readonly type: EGameObjectType;
@@ -31,8 +32,9 @@ export default abstract class GameObject {
         return false;
     }
 
-    public CheckInside(pos: Point): boolean {
-        return false;
+    public CheckInside([xPos, yPos]: Point): boolean {
+        const [x, y, w, h] = this.transform;
+        return xPos >= x && yPos >= y && xPos < x + w && yPos < y + h;
     }
 
     public OnReset(): void {
@@ -53,6 +55,10 @@ export default abstract class GameObject {
         writer.writeU(h, 16);
         // next super()...
     }
+
+	public get [Symbol.toStringTag](): string {
+		return this.constructor.name;
+	}
 }
 
 export class TextObject extends GameObject {
@@ -90,16 +96,73 @@ export class TextObject extends GameObject {
     }
 }
 
-export class TeleportObject extends GameObject {
-    private isBad: boolean = false;
+export class WallObject extends GameObject {
+    private color: EWallColor;
 
-    constructor(trans: Box, isBad: boolean = false) {
-        super(trans, EGameObjectType.TELEPORT);
-        this.isBad = isBad;
+    constructor(trans: Box, color: EWallColor) {
+        super(trans, EGameObjectType.WALL);
+
+        this.color = color;
     }
 
     Serialize(writer: BufferWriter) {
         super.Serialize(writer);
-        writer.writeU(this.isBad ? 1 : 0);
+        writer.writeU(this.color, 32);
+    }
+}
+
+export class TeleportObject extends GameObject {
+    private toLevel: Level = null;
+    private toPoint: Point = null;
+    private appearance: ETeleportColor = 0;
+
+    /**
+     * [Red] Teleport to level spawn
+     */
+    constructor(trans: Box);
+    /**
+     * [Green] Teleport to level {point}
+     * @param point
+     */
+    constructor(trans: Box, point: Point);
+    /**
+     * [Green] Teleport to {level}
+     * @param level
+     */
+    constructor(trans: Box, level: Level);
+
+    constructor(trans: Box, level: Point | Level = null) {
+        super(trans, EGameObjectType.TELEPORT);
+
+        if (!level) {
+            this.appearance = ETeleportColor.RED;
+        } else if (level instanceof Level) {
+            this.toPoint = level.spawnPoint;
+            this.toLevel = level;
+            this.appearance = ETeleportColor.GREEN;
+        } else if (level instanceof Array) {
+            this.toPoint = level;
+            this.appearance = ETeleportColor.GREEN;
+        } else {
+            throw Error(`what?`);
+        }
+    }
+
+    OnHover(player: Player) {
+        if (this.toLevel) {
+            levelManager.Join(player, this.toLevel);
+        } else {
+            if (this.toPoint) {
+                player.OnTeleport(this.toPoint);
+            } else {
+                player.OnTeleport(this.level.spawnPoint);
+            }
+        }
+        return false;
+    }
+
+    Serialize(writer: BufferWriter) {
+        super.Serialize(writer);
+        writer.writeU(this.appearance);
     }
 }

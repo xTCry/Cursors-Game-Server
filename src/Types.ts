@@ -24,7 +24,12 @@ export enum EGameObjectType {
 
 export enum EWallColor {
     BLACK = 0x000000,
-    RED,
+    PINK = 0xFF9999,
+    PORTAGE = 0x9999FF,
+    YELLOW = 0xFFFF99,
+    ELECTRIC_BLUE = 0x99FFFF,
+    VIOLET = 0xFF99FF,
+    NEON_BLUE = 0x3333FF,
 }
 
 export enum ETeleportColor {

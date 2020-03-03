@@ -1,6 +1,6 @@
 import Level from '../Level';
-import { Point } from '../../Types';
-import { TextObject, TeleportObject } from '../GameObject';
+import { Point, EWallColor } from '../../Types';
+import { TextObject, TeleportObject, ButtonObject, WallObject } from '../GameObject';
 import LevelManager from '../../manager/LevelManager';
 
 export default class LevelTest2 extends Level {
@@ -8,9 +8,13 @@ export default class LevelTest2 extends Level {
     spawn: Point = [200, 150];
 
     OnInit() {
-        this.AddGameObject(new TextObject([20, 60], 24, true, 'GO'));
-        this.AddGameObject(new TeleportObject([10, 10, 30, 30]));
+        this.AddGameObject(new TeleportObject([10, 10, 30, 30], LevelManager.GetLevel(0/* LevelManager.levels.length - 1 */)));
+        this.AddGameObject(new TeleportObject([0, 0, 400, 10]));
 
-		this.AddGameObject(new TeleportObject([10, 280, 380, 10], LevelManager.GetLevel(LevelManager.levels.length - 1)));
+        this.AddGameObject(new WallObject([0, 290, 400, 10], EWallColor.PINK));
+        this.AddGameObject(new WallObject([0, 50, 400, 10], EWallColor.PINK));
+
+        this.AddGameObject(new TextObject([20, 60], 22, true, 'GO'));
+        this.AddGameObject(new ButtonObject([100, 100, 40, 40], EWallColor.PINK, 10, 700));
     }
 }

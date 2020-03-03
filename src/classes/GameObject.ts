@@ -6,14 +6,31 @@ import levelManager from '../manager/LevelManager';
 
 export default abstract class GameObject {
     public readonly type: EGameObjectType;
-    public id: number;
+    public id: number = null;
     public transform: Box;
     public isInit: boolean = false;
-    public level: Level;
+    public isActive: boolean = true;
+    public actCounter: number = 0;
+    public level: Level = null;
 
     constructor(transform: Box, type: EGameObjectType) {
         this.transform = transform;
         this.type = type;
+    }
+
+    public Activate() {
+        if (this.actCounter !== 0 && --this.actCounter == 0) {
+            this.isActive = true;
+            this.level.AddGameObject(this);
+        }
+    }
+
+    public Deactivate() {
+        if (this.actCounter === 0) {
+            this.isActive = false;
+            this.level.RemoveGameObject(this);
+        }
+        this.actCounter++;
     }
 
     public OnTick(): boolean {
@@ -38,6 +55,7 @@ export default abstract class GameObject {
     }
 
     public OnReset(): void {
+        // this.level.log.info('OnReset %s', this.constructor.name);
         return;
     }
 
@@ -55,10 +73,6 @@ export default abstract class GameObject {
         writer.writeU(h, 16);
         // next super()...
     }
-
-	public get [Symbol.toStringTag](): string {
-		return this.constructor.name;
-	}
 }
 
 export class TextObject extends GameObject {
@@ -97,7 +111,7 @@ export class TextObject extends GameObject {
 }
 
 export class WallObject extends GameObject {
-    private color: EWallColor;
+    public readonly color: EWallColor;
 
     constructor(trans: Box, color: EWallColor) {
         super(trans, EGameObjectType.WALL);
@@ -164,5 +178,72 @@ export class TeleportObject extends GameObject {
     Serialize(writer: BufferWriter) {
         super.Serialize(writer);
         writer.writeU(this.appearance);
+    }
+}
+
+export class ButtonObject extends GameObject {
+    private count: number = 0;
+    private countMax: number = 0;
+    private speed: number = 0;
+    private lastClickAt: number = 0;
+    private color: EWallColor;
+
+    constructor(trans: Box, color: EWallColor, count: number, speed: number) {
+        super(trans, EGameObjectType.BUTTON);
+
+        this.color = color;
+        this.count = this.countMax = count;
+        this.speed = speed;
+    }
+
+    OnClick() {
+        let isUpd = false;
+
+        if (this.count > 0) {
+            this.count--;
+            isUpd = true;
+        }
+
+        if (this.count === 0) {
+            this.lastClickAt = this.level.frameTick + this.speed * 1.5;
+            if (isUpd) {
+                this.level.ActiveAllWallObjectsByColor(this.color, false);
+            }
+        }
+        return isUpd;
+    }
+
+    OnTick() {
+        const t = this.level.frameTick;
+        const diff = ((t - this.lastClickAt) / this.speed) | 0;
+
+        if (diff > 0 && this.count < this.countMax) {
+            if (this.count === 0) {
+                this.level.ActiveAllWallObjectsByColor(this.color, true);
+            }
+
+            this.count += diff;
+            this.count = this.count >= this.countMax ? this.countMax : this.count;
+            this.lastClickAt += diff * this.speed;
+
+            return true;
+        } else if (this.count >= this.countMax) {
+            this.lastClickAt = t;
+        }
+        return false;
+    }
+
+    OnReset() {
+        if (this.count === 0) {
+            this.level.ActiveAllWallObjectsByColor(this.color, true);
+        }
+        this.lastClickAt = 0;
+        this.count = this.countMax;
+    }
+
+    Serialize(writer: BufferWriter) {
+        super.Serialize(writer);
+        writer.writeU(this.count, 16);
+        writer.writeU(this.color, 32);
     }
 }

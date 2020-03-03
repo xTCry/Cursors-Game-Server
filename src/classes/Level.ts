@@ -1,8 +1,8 @@
 import { Player } from './Player';
-import { Point, ServerMessageType, EGameObjectType, Box } from '../Types';
+import { Point, ServerMessageType, EGameObjectType, Box, EWallColor } from '../Types';
 import { BufferWriter } from '../tools/Buffer';
 import { createLogger, Logger } from '../tools/logger';
-import GameObject from './GameObject';
+import GameObject, { TextObject, WallObject } from './GameObject';
 import levelManager from '../manager/LevelManager';
 
 export default abstract class Level {
@@ -11,13 +11,14 @@ export default abstract class Level {
     protected readonly spawn: Point;
     private isTick: boolean = true;
     private map: Uint8Array = new Uint8Array(400 * 300);
-    private gameObjects: Array<GameObject> = [];
+    private gameObjects: Array<GameObject> = CreateAutoSortGameObjects();
     private gameObjectsCounter: number = 0;
+    public frameTick: number = 0;
 
     private sentTotalPlayersCount: number = 0;
     private playersMoved: Array<Player> = [];
-    private toUpdate: Array<GameObject> = [];
-    private toRemove: Array<number> = [];
+    private toUpdate: Array<GameObject> = CreateUnduplicator();
+    private toRemove: Array<number> = CreateUnduplicator();
     private clicks: Array<Point> = [];
     private lines: Array<Box> = [];
 
@@ -25,6 +26,7 @@ export default abstract class Level {
 
     public Init() {
         this.log = createLogger(`LVL::${this.name}`);
+        this.AddGameObject(new TextObject([2, 6], 14, false, `Level: [${this.name}]`, 'ababab'));
         this.OnInit();
     }
 
@@ -33,11 +35,9 @@ export default abstract class Level {
             obj.id = ++this.gameObjectsCounter;
         }
 
-        this.gameObjects.push(obj);
-        // this.gameObjects = this.gameObjects.sort((a, b) => (a.id > b.id ? 1 : -1));
-
-        if (obj.isInit) return;
-        obj.isInit = true;
+        try {
+            this.gameObjects.push(obj);
+        } catch (e) {}
 
         obj.SetLevel(this);
 
@@ -53,23 +53,70 @@ export default abstract class Level {
         }
 
         obj.OnTick();
-        // this.toUpdate.push(obj);
+        try {
+            this.toUpdate.push(obj);
+        } catch (e) {}
+    }
+
+    public RemoveGameObject(obj: GameObject) {
+        if (!this.gameObjects.includes(obj)) return;
+
+        if (this.toUpdate.includes(obj)) {
+            this.toUpdate.slice(
+                this.toUpdate.findIndex(e => e === obj),
+                1
+            );
+        }
+
+        try {
+            this.toRemove.push(obj.id);
+        } catch (e) {}
+
+        const [x, y, w, h] = obj.transform;
+        for (let X = x; X < x + w; X++) {
+            for (let Y = y; Y < y + h; Y++) {
+                this.map[X + 400 * Y] &= ~(1 << obj.type);
+            }
+        }
+
+        // Fix objs layers
+        const objs = this.getGObjects(obj.type).filter(e => e.isActive);
+        for (const obj2 of objs) {
+            const [x2, y2, w2, h2] = obj2.transform;
+            if (x + w < x2 || x > x2 + w2 || y + h < y2 || y > y2 + h2) break;
+            for (let X = x; X < x + w; X++) {
+                for (let Y = y; Y < y + h; Y++) {
+                    this.map[X + 400 * Y] |= 1 << obj2.type;
+                }
+            }
+        }
+    }
+
+    public ActiveAllWallObjectsByColor(color: EWallColor, state: boolean) {
+        const objs = this.getGObjects(EGameObjectType.WALL).filter((e: WallObject) => e.color === color);
+        for (const obj of objs) {
+            // obj.isActive = state;
+            obj[state ? 'Activate' : 'Deactivate']();
+        }
     }
 
     public OnPlayerJoin(player: Player) {
         this.log.info(`► Player join to level`);
         player.OnMoveSafe(this.spawn, false, false);
+        this.isTick = true;
     }
 
     public OnPlayerLeave(player: Player) {
         this.playersMoved.slice(
-            this.playersMoved.findIndex(e => e == player),
+            this.playersMoved.findIndex(e => e === player),
             1
         );
 
         for (const obj of this.gameObjects) {
             if (obj.OnPlayerLeft(player)) {
-                this.toUpdate.push(obj);
+                try {
+                    this.toUpdate.push(obj);
+                } catch (e) {}
             }
         }
 
@@ -77,8 +124,6 @@ export default abstract class Level {
     }
 
     public SendLevelData(player: Player, sync: number) {
-        // const objs = this.gameObjects.filter(x => (x.type != EGameObjectType.WALL || !x.Disabled));
-
         const numObjects = this.gameObjects.length;
 
         const writer = new BufferWriter();
@@ -101,19 +146,30 @@ export default abstract class Level {
     }
 
     public TryTick() {
-        if (!this.isTick || !this.players.length) return;
+        if (!this.isTick) return;
+
+        this.frameTick = Date.now(); //+= 50;
 
         try {
             this.Tick();
-        } catch (e) {}
+        } catch (e) {
+            console.error(e);
+        }
+    }
+
+    public StopTick() {
+        this.isTick = false;
+        for (const obj of this.gameObjects) {
+            obj.OnReset();
+        }
     }
 
     private Tick() {
-        const players = this.players;
-
         for (const obj of this.gameObjects) {
             if (obj.OnTick()) {
-                this.toUpdate.push(obj);
+                try {
+                    this.toUpdate.push(obj);
+                } catch (e) {}
             }
         }
 
@@ -125,7 +181,9 @@ export default abstract class Level {
                     const objs = this.getGObjects(EGameObjectType.BUTTON);
                     for (const obj of objs) {
                         if (obj.CheckInside([x, y]) && obj.OnClick()) {
-                            this.toUpdate.push(obj);
+                            try {
+                                this.toUpdate.push(obj);
+                            } catch (e) {}
                         }
                     }
                 }
@@ -141,7 +199,9 @@ export default abstract class Level {
                     const objs = this.getGObjects(EGameObjectType.AREA_COUNTER);
                     for (const obj of objs) {
                         if (obj.CheckInside([x, y]) && obj.OnHover(player)) {
-                            this.toUpdate.push(obj);
+                            try {
+                                this.toUpdate.push(obj);
+                            } catch (e) {}
                         }
                     }
                 }
@@ -157,7 +217,13 @@ export default abstract class Level {
             }
         }
 
+        const players = this.players;
         let numPlayers = players.length < 100 ? players.length : 100;
+
+        if (numPlayers === 0) {
+            this.StopTick();
+            return;
+        }
 
         if (
             this.sentTotalPlayersCount != levelManager.totalPlayersCount ||
@@ -212,8 +278,8 @@ export default abstract class Level {
         this.playersMoved = [];
         this.clicks = [];
         this.lines = [];
-        this.toUpdate = [];
-        this.toRemove = [];
+        this.toUpdate = CreateUnduplicator();
+        this.toRemove = CreateUnduplicator();
     }
 
     public OnMoved(player: Player) {
@@ -253,3 +319,36 @@ export default abstract class Level {
         return this.spawn;
     }
 }
+
+const CreateAutoSortGameObjects = (target: Array<GameObject> = []) =>
+    new Proxy<Array<GameObject>>(target, {
+        set(target, p, value) {
+            if (target.includes(value)) {
+                return false;
+            }
+
+            target[p] = value;
+            // target.sort((a, b) => (a.id > b.id ? 1 : -1));
+            target.sort((a, b) => a.id - b.id);
+            return true;
+        },
+        deleteProperty(target, p) {
+            delete target[p];
+            target.sort((a, b) => a.id - b.id);
+            return true;
+        },
+    });
+
+const CreateUnduplicator = (target: Array<any> = []) =>
+    new Proxy<Array<any>>(target, {
+        set(target, p, value) {
+            // console.log(`[U] Set`, p, value instanceof Level ? value.constructor.name : value);
+            if (target.includes(value)) {
+                // console.log(`[U] Detectd duplicate`);
+                return false;
+            }
+
+            target[p] = value;
+            return true;
+        },
+    });

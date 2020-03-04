@@ -3,6 +3,7 @@ import { BufferWriter } from '../tools/Buffer';
 import { Player } from './Player';
 import Level from './Level';
 import levelManager from '../manager/LevelManager';
+import { CreateUnduplicator } from '../tools/Utils';
 
 export default abstract class GameObject {
     public readonly type: EGameObjectType;
@@ -19,13 +20,15 @@ export default abstract class GameObject {
     }
 
     public Activate() {
-        if (this.actCounter !== 0 && --this.actCounter == 0) {
+        this.level.log.info('Activate Wall [%d] (%d)', this.id, this.actCounter);
+        if (this.actCounter !== 0 && --this.actCounter === 0) {
             this.isActive = true;
             this.level.AddGameObject(this);
         }
     }
 
     public Deactivate() {
+        this.level.log.info('Deactivate Wall [%d] (%d)', this.id, this.actCounter);
         if (this.actCounter === 0) {
             this.isActive = false;
             this.level.RemoveGameObject(this);
@@ -178,6 +181,80 @@ export class TeleportObject extends GameObject {
     Serialize(writer: BufferWriter) {
         super.Serialize(writer);
         writer.writeU(this.appearance);
+    }
+}
+
+export class AreaCounterObject extends GameObject {
+    private count: number = 0;
+    private countMax: number = 0;
+    private color: EWallColor;
+    private onArea: Array<Player> = CreateUnduplicator();
+
+    constructor(trans: Box, color: EWallColor, count: number) {
+        super(trans, EGameObjectType.AREA_COUNTER);
+
+        this.color = color;
+        this.count = this.countMax = count;
+    }
+
+    Recount() {
+        let newCount = (e => (e <= 0 ? 0 : e))(this.countMax - this.onArea.length);
+        let oldCount = this.count;
+
+        // this.level.log.info('AreaCounter (%d): [%s]', newCount, this.onArea.map(e => e.uniqueID).join());
+
+        if (this.count !== newCount) {
+            this.count = newCount;
+            if (oldCount === 0) {
+                this.level.ActiveAllWallObjectsByColor(this.color, true);
+            }
+            else if(this.count === 0) {
+                this.level.ActiveAllWallObjectsByColor(this.color, false);
+            }
+            return true;
+        }
+
+        return false;
+    }
+
+    OnHover(player: Player) {
+        try {
+            this.onArea.push(player);
+            return this.Recount();
+        } catch(e) {}
+        
+        return false;
+    }
+
+    OnPlayerLeft(player: Player) {
+        try {
+            this.onArea.splice(this.onArea.findIndex(e => e === player), 1);
+            return this.Recount();
+        } catch(e) {}
+
+        return false;
+    }
+
+    OnTick() {
+        let isUpd = false;
+        for (const player of this.onArea) {
+            if(!this.CheckInside(player.pos)) {
+                this.onArea.splice(this.onArea.findIndex(e => e === player), 1);
+                isUpd = true;
+            }
+        }
+        return isUpd ? this.Recount(): false;
+    }
+
+    OnReset() {
+        this.count = this.countMax;
+        this.Recount();
+    }
+
+    Serialize(writer: BufferWriter) {
+        super.Serialize(writer);
+        writer.writeU(this.count, 16);
+        writer.writeU(this.color, 32);
     }
 }
 

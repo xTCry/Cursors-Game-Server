@@ -45,7 +45,7 @@ class LevelManager {
      */
     public Join(player: Player, level: number | Level) {
         const newLevelID = level instanceof Level ? this.levels.findIndex(e => e === level) : level;
-        
+
         if (player.levelID !== null && player.levelID !== newLevelID) {
             this.Leave(player);
         }

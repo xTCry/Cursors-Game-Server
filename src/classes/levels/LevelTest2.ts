@@ -1,6 +1,6 @@
 import Level from '../Level';
 import { Point, EWallColor } from '../../Types';
-import { TextObject, TeleportObject, ButtonObject, WallObject } from '../GameObject';
+import { TextObject, TeleportObject, ButtonObject, WallObject, AreaCounterObject } from '../GameObject';
 import LevelManager from '../../manager/LevelManager';
 
 export default class LevelTest2 extends Level {
@@ -16,5 +16,6 @@ export default class LevelTest2 extends Level {
 
         this.AddGameObject(new TextObject([20, 60], 22, true, 'GO'));
         this.AddGameObject(new ButtonObject([100, 100, 40, 40], EWallColor.PINK, 10, 700));
+        this.AddGameObject(new AreaCounterObject([150, 100, 40, 40], EWallColor.PINK, 1));
     }
 }

@@ -4,6 +4,7 @@ import { BufferWriter } from '../tools/Buffer';
 import { createLogger, Logger } from '../tools/logger';
 import GameObject, { TextObject, WallObject } from './GameObject';
 import levelManager from '../manager/LevelManager';
+import { CreateUnduplicator } from '../tools/Utils';
 
 export default abstract class Level {
     public log: Logger;
@@ -26,25 +27,21 @@ export default abstract class Level {
 
     public Init() {
         this.log = createLogger(`LVL::${this.name}`);
-        this.AddGameObject(new TextObject([2, 6], 14, false, `Level: [${this.name}]`, 'ababab'));
         this.OnInit();
+        this.AddGameObject(new TextObject([2, 6], 14, false, `Level: [${this.name}]`, 'ababab'));
     }
 
     public AddGameObject(obj: GameObject) {
-        if (obj.id === null) {
-            obj.id = ++this.gameObjectsCounter;
-        }
-
-        try {
-            this.gameObjects.push(obj);
-        } catch (e) {}
-
-        obj.SetLevel(this);
-
         const [x, y, w, h] = obj.transform;
         if (x + w > 400 || y + h > 300) {
             throw Error(`Object outside of map [${x};${y}] {${obj}}`);
         }
+
+        // TODO: remake this (there may be several addings of same object)
+        try {
+            this.gameObjects.push(obj);
+            obj.SetLevel(this);
+        } catch (e) {}
 
         for (let X = x; X < x + w; X++) {
             for (let Y = y; Y < y + h; Y++) {
@@ -52,17 +49,22 @@ export default abstract class Level {
             }
         }
 
+        if (obj.id === null) {
+            obj.id = ++this.gameObjectsCounter;
+        }
+        else {
+            try {
+                this.toUpdate.push(obj);
+            } catch (e) {}
+        }
         obj.OnTick();
-        try {
-            this.toUpdate.push(obj);
-        } catch (e) {}
     }
 
     public RemoveGameObject(obj: GameObject) {
         if (!this.gameObjects.includes(obj)) return;
 
         if (this.toUpdate.includes(obj)) {
-            this.toUpdate.slice(
+            this.toUpdate.splice(
                 this.toUpdate.findIndex(e => e === obj),
                 1
             );
@@ -107,7 +109,7 @@ export default abstract class Level {
     }
 
     public OnPlayerLeave(player: Player) {
-        this.playersMoved.slice(
+        this.playersMoved.splice(
             this.playersMoved.findIndex(e => e === player),
             1
         );
@@ -335,20 +337,6 @@ const CreateAutoSortGameObjects = (target: Array<GameObject> = []) =>
         deleteProperty(target, p) {
             delete target[p];
             target.sort((a, b) => a.id - b.id);
-            return true;
-        },
-    });
-
-const CreateUnduplicator = (target: Array<any> = []) =>
-    new Proxy<Array<any>>(target, {
-        set(target, p, value) {
-            // console.log(`[U] Set`, p, value instanceof Level ? value.constructor.name : value);
-            if (target.includes(value)) {
-                // console.log(`[U] Detectd duplicate`);
-                return false;
-            }
-
-            target[p] = value;
             return true;
         },
     });

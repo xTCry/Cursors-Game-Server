@@ -4,7 +4,7 @@ import { BufferWriter } from '../tools/Buffer';
 import { createLogger, Logger } from '../tools/logger';
 import GameObject, { TextObject, WallObject } from './GameObject';
 import levelManager from '../manager/LevelManager';
-import { CreateUnduplicator } from '../tools/Utils';
+import { CreateUnduplicator, equalPoint, walk, unstuck } from '../tools/Utils';
 
 export default abstract class Level {
     public log: Logger;
@@ -46,6 +46,17 @@ export default abstract class Level {
         for (let X = x; X < x + w; X++) {
             for (let Y = y; Y < y + h; Y++) {
                 this.map[X + 400 * Y] |= 1 << obj.type;
+            }
+        }
+
+        if (obj.type === EGameObjectType.WALL) {
+            for (const player of this.players) {
+                const [x, y] = player.pos;
+                if (this.map[x + 400 * y] & (1 << EGameObjectType.WALL)) {
+                    const p = unstuck([x, y], this.map);
+                    this.log.info('Triggered WallStuckd => [%s]', p.join());
+                    player.OnTeleport(p);
+                }
             }
         }
 
@@ -226,6 +237,15 @@ export default abstract class Level {
             return;
         }
 
+        for (const player of players) {
+            const [x, y] = player.pos;
+            if (this.map[x + 400 * y] & (1 << EGameObjectType.WALL)) {
+                const p = unstuck([x, y], this.map);
+                this.log.info('[SS] Triggered WallStuckd => [%s]', p.join());
+                player.OnTeleport(p);
+            }
+        }
+
         if (
             this.sentTotalPlayersCount != levelManager.totalPlayersCount ||
             this.playersMoved.length ||
@@ -300,9 +320,8 @@ export default abstract class Level {
     }
 
     public CheckMovement(start: Point, end: Point): Point {
-        // TODO: ... check collisions
-
-        if (end[0] < 400 && end[1] < 300) {
+        start = walk(start, end, this.map);
+        if (end[0] < 400 && end[1] < 300 && !equalPoint(start, end)) {
             return end;
         }
         return start;

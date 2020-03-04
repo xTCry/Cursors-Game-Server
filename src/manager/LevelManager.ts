@@ -5,6 +5,7 @@ import Level from '../classes/Level';
 import LevelTest from '../classes/levels/LevelTest';
 import LevelTest2 from '../classes/levels/LevelTest2';
 import LevelEnd from '../classes/levels/LevelEnd';
+import LevelMaze from '../classes/levels/LevelMaze';
 
 class LevelManager {
     private readonly log: Logger = createLogger('LM');
@@ -14,7 +15,12 @@ class LevelManager {
         // TODO: load level from storage
 
         // test
-        this.AddLevels([new LevelTest(), new LevelTest2(), new LevelEnd()]);
+        this.AddLevels([
+            new LevelTest(),
+            new LevelMaze(),
+            new LevelTest2(),
+            new LevelEnd(),
+        ]);
 
         for (const level of this.levels) {
             level.Init();

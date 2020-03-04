@@ -51,8 +51,7 @@ export default abstract class Level {
 
         if (obj.id === null) {
             obj.id = ++this.gameObjectsCounter;
-        }
-        else {
+        } else {
             try {
                 this.toUpdate.push(obj);
             } catch (e) {}
@@ -325,18 +324,17 @@ export default abstract class Level {
 const CreateAutoSortGameObjects = (target: Array<GameObject> = []) =>
     new Proxy<Array<GameObject>>(target, {
         set(target, p, value) {
-            if (target.includes(value)) {
-                return false;
+            if (value instanceof GameObject) {
+                if (target.includes(value)) {
+                    return false;
+                }
             }
-
-            target[p] = value;
-            // target.sort((a, b) => (a.id > b.id ? 1 : -1));
-            target.sort((a, b) => a.id - b.id);
-            return true;
+            return Reflect.set(target, p, value);
         },
-        deleteProperty(target, p) {
-            delete target[p];
-            target.sort((a, b) => a.id - b.id);
-            return true;
+        get(target, p, receiver) {
+            if (target[p] instanceof GameObject) {
+                target.sort((a, b) => a.id - b.id);
+            }
+            return Reflect.get(target, p, receiver);
         },
     });

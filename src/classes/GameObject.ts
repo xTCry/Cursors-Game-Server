@@ -20,7 +20,7 @@ export default abstract class GameObject {
     }
 
     public Activate() {
-        this.level.log.info('Activate Wall [%d] (%d)', this.id, this.actCounter);
+        // this.level.log.info('Activate Wall [%d] (%d)', this.id, this.actCounter);
         if (this.actCounter !== 0 && --this.actCounter === 0) {
             this.isActive = true;
             this.level.AddGameObject(this);
@@ -28,7 +28,7 @@ export default abstract class GameObject {
     }
 
     public Deactivate() {
-        this.level.log.info('Deactivate Wall [%d] (%d)', this.id, this.actCounter);
+        // this.level.log.info('Deactivate Wall [%d] (%d)', this.id, this.actCounter);
         if (this.actCounter === 0) {
             this.isActive = false;
             this.level.RemoveGameObject(this);
@@ -67,13 +67,17 @@ export default abstract class GameObject {
     }
 
     public Serialize(writer: BufferWriter) {
+        this.MainSerialize(writer);
+    }
+
+    protected MainSerialize(writer: BufferWriter, wh: boolean = true) {
         const [x, y, w, h] = this.transform;
         writer.writeU(this.id, 32);
         writer.writeU(this.type);
         writer.writeU(x, 16);
         writer.writeU(y, 16);
-        writer.writeU(w, 16);
-        writer.writeU(h, 16);
+        wh && writer.writeU(w, 16);
+        wh && writer.writeU(h, 16);
         // next super()...
     }
 }
@@ -94,11 +98,7 @@ export class TextObject extends GameObject {
     }
 
     Serialize(writer: BufferWriter) {
-        const [x, y] = this.transform;
-        writer.writeU(this.id, 32);
-        writer.writeU(this.type);
-        writer.writeU(x, 16);
-        writer.writeU(y, 16);
+        this.MainSerialize(writer, false);
 
         writer.writeU(this.size);
         writer.writeU(this.isCenter ? 1 : 0);
@@ -207,8 +207,7 @@ export class AreaCounterObject extends GameObject {
             this.count = newCount;
             if (oldCount === 0) {
                 this.level.ActiveAllWallObjectsByColor(this.color, true);
-            }
-            else if(this.count === 0) {
+            } else if (this.count === 0) {
                 this.level.ActiveAllWallObjectsByColor(this.color, false);
             }
             return true;
@@ -221,16 +220,19 @@ export class AreaCounterObject extends GameObject {
         try {
             this.onArea.push(player);
             return this.Recount();
-        } catch(e) {}
-        
+        } catch (e) {}
+
         return false;
     }
 
     OnPlayerLeft(player: Player) {
         try {
-            this.onArea.splice(this.onArea.findIndex(e => e === player), 1);
+            this.onArea.splice(
+                this.onArea.findIndex(e => e === player),
+                1
+            );
             return this.Recount();
-        } catch(e) {}
+        } catch (e) {}
 
         return false;
     }
@@ -238,12 +240,15 @@ export class AreaCounterObject extends GameObject {
     OnTick() {
         let isUpd = false;
         for (const player of this.onArea) {
-            if(!this.CheckInside(player.pos)) {
-                this.onArea.splice(this.onArea.findIndex(e => e === player), 1);
+            if (!this.CheckInside(player.pos)) {
+                this.onArea.splice(
+                    this.onArea.findIndex(e => e === player),
+                    1
+                );
                 isUpd = true;
             }
         }
-        return isUpd ? this.Recount(): false;
+        return isUpd ? this.Recount() : false;
     }
 
     OnReset() {
@@ -259,11 +264,11 @@ export class AreaCounterObject extends GameObject {
 }
 
 export class ButtonObject extends GameObject {
-    private count: number = 0;
-    private countMax: number = 0;
-    private speed: number = 0;
-    private lastClickAt: number = 0;
-    private color: EWallColor;
+    protected count: number = 0;
+    protected countMax: number = 0;
+    protected speed: number = 0;
+    protected lastClickAt: number = 0;
+    protected color: EWallColor;
 
     constructor(trans: Box, color: EWallColor, count: number, speed: number) {
         super(trans, EGameObjectType.BUTTON);
@@ -322,5 +327,50 @@ export class ButtonObject extends GameObject {
         super.Serialize(writer);
         writer.writeU(this.count, 16);
         writer.writeU(this.color, 32);
+    }
+}
+
+export class RainbowButtonObject extends ButtonObject {
+    protected fakeColor: EWallColor;
+
+    constructor(trans: Box, color: EWallColor, count: number, speed: number) {
+        super(trans, color, count, speed);
+        this.fakeColor = color;
+    }
+
+    OnTick() {
+        const t = this.level.frameTick;
+
+        const getColorOfs = (e = 0, speed = 30) => Math.sin(0.02 * (t / speed) + e) * 127 + 128;
+        const newColor = (getColorOfs() << 16) | (getColorOfs(2) << 8) | getColorOfs(4);
+
+        const isUpd = newColor != this.fakeColor;
+        if (isUpd) {
+            this.fakeColor = newColor;
+        }
+
+        const newSpeed = this.speed * ((1 / this.countMax) * (this.count + 1));
+        const diff = ((t - this.lastClickAt) / newSpeed) | 0;
+
+        if (diff > 0 && this.count < this.countMax) {
+            if (this.count === 0) {
+                this.level.ActiveAllWallObjectsByColor(this.color, true);
+            }
+
+            this.count += diff;
+            this.count = this.count >= this.countMax ? this.countMax : this.count;
+            this.lastClickAt += diff * newSpeed;
+
+            return true;
+        } else if (this.count >= this.countMax) {
+            this.lastClickAt = t;
+        }
+        return isUpd;
+    }
+
+    Serialize(writer: BufferWriter) {
+        super.MainSerialize(writer);
+        writer.writeU(this.count, 16);
+        writer.writeU(this.fakeColor, 32);
     }
 }

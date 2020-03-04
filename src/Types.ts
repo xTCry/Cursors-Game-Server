@@ -24,6 +24,7 @@ export enum EGameObjectType {
 
 export enum EWallColor {
     BLACK = 0x000000,
+    WHITE = 0xFFFFFF,
     PINK = 0xFF9999,
     PORTAGE = 0x9999FF,
     YELLOW = 0xFFFF99,
